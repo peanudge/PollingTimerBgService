@@ -66,3 +66,46 @@ public class TimerService : IHostedService, IDisposable
 ```
 
 if callback takes minute to execute for some unexpected reason then there will be six calls waiting after lock
+
+# Using lock with bypassing task failed to acquire lock
+
+```csharp
+ public class TimerService : IHostedService, IDisposable
+{
+    private static object _lock = new object();
+    private static Timer _timer;
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        _timer = new Timer(Callback, null, 0, 10000);
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        _timer.Dispose();
+    }
+
+    public void Callback(object state)
+    {
+        var hasLock = false;
+
+        try
+        {
+            Monitor.TryEnter(_locker, ref hasLock);
+            if (!hasLock)
+            {
+                return;
+            }
+
+            // Do something
+        }
+        finally
+        {
+            if (hasLock)
+            {
+                Monitor.Exit(_locker);
+            }
+        }
+    }
+}
+```

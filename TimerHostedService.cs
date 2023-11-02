@@ -28,18 +28,32 @@ public class TimedHostedService : IHostedService, IDisposable
         var lockByDevice = _locks.GetValueOrDefault(device.Id);
 
         if(lockByDevice is null) return;
- 
-        int currentQueueCount = Interlocked.Increment(ref queueCount);
-        lock(lockByDevice) { 
+
+        // Jump out from calls that failed to acquire lock.
+        var hasLock = false;
+
+        try{
+            int currentQueueCount = Interlocked.Increment(ref queueCount);
+            Monitor.TryEnter(lockByDevice, ref hasLock); 
+            if (!hasLock)
+            {
+                return;
+            } 
+
             _logger.LogWarning("Queue length is " + (currentQueueCount - 1).ToString()); 
             Thread.Sleep(1000);
             _logger.LogInformation(
                 "DeviceId: {device}, UpdateAt: {time}", 
                 device.Id,
                 device.UpdatedAt = DateTime.Now
-            );
-        }
-        Interlocked.Decrement(ref queueCount);
+            ); 
+        } finally {
+            if (hasLock)
+            {
+                Monitor.Exit(lockByDevice); 
+            } 
+            Interlocked.Decrement(ref queueCount);
+        } 
     } 
 
     public Task StartAsync(CancellationToken cancellationToken)
