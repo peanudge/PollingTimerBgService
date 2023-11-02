@@ -70,14 +70,15 @@ if callback takes minute to execute for some unexpected reason then there will b
 # Using lock with bypassing task failed to acquire lock
 
 ```csharp
- public class TimerService : IHostedService, IDisposable
+public class TimerService : IHostedService, IDisposable
 {
+    private const long TimerInterval = 1000;
     private static object _lock = new object();
     private static Timer _timer;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _timer = new Timer(Callback, null, 0, 10000);
+        _timer = new Timer(Callback, null, 0, TimerInterval);
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
@@ -97,15 +98,25 @@ if callback takes minute to execute for some unexpected reason then there will b
                 return;
             }
 
+            _timer.Change(Timeout.Infinite, Timeout.Infinite); // Stop Timer
+
             // Do something
+
         }
         finally
         {
             if (hasLock)
             {
                 Monitor.Exit(_locker);
+                _timer.Change(0, TimerInterval); // Restart Timer
             }
         }
     }
 }
 ```
+
+Now we almost got rid of overlapping calls but not completely.
+
+Calls to timer callback still happen but they quit fast when failing to acquire lock.
+
+This method is also good for cases when some work in timer callback must be done at every call and there’s also some work that can’t be done in parallel by multiple threads.

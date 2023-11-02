@@ -26,8 +26,10 @@ public class TimedHostedService : IHostedService, IDisposable
         var device = (Device)state!;  
 
         var lockByDevice = _locks.GetValueOrDefault(device.Id);
+        var timerById = _timers.GetValueOrDefault(device.Id);
 
         if(lockByDevice is null) return;
+        if(timerById is null) return;
 
         // Jump out from calls that failed to acquire lock.
         var hasLock = false;
@@ -37,22 +39,28 @@ public class TimedHostedService : IHostedService, IDisposable
             Monitor.TryEnter(lockByDevice, ref hasLock); 
             if (!hasLock)
             {
+                _logger.LogWarning("Failing to acquire lock for device " + device.Id.ToString()); 
+                _logger.LogWarning("Current waiting queue length: " + currentQueueCount.ToString());
                 return;
             } 
 
-            _logger.LogWarning("Queue length is " + (currentQueueCount - 1).ToString()); 
+            timerById.Change(Timeout.Infinite, Timeout.Infinite); // Stop Tim
+            
             Thread.Sleep(1000);
             _logger.LogInformation(
                 "DeviceId: {device}, UpdateAt: {time}", 
                 device.Id,
                 device.UpdatedAt = DateTime.Now
             ); 
+
+
         } finally {
             if (hasLock)
             {
                 Monitor.Exit(lockByDevice); 
             } 
-            Interlocked.Decrement(ref queueCount);
+            timerById.Change(0, device.Interval); // Restart Timer 
+            Interlocked.Decrement(ref queueCount); 
         } 
     } 
 
