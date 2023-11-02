@@ -3,7 +3,7 @@ using ContosoWorker;
 IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices(services =>
     {
-        services.AddHostedService<TimedHostedService>(); 
+        services.AddHostedService<PollingHostedService>(); 
     })
     .Build();
 

@@ -1,29 +1,29 @@
 
 namespace ContosoWorker;
 
-public class Device {
+public class BackgroundPollingTask {
     public long Id { get; set; }
     public int Interval { get; set; }
     public DateTime UpdatedAt {get;set;} = DateTime.MinValue;
 }
 
-public class TimedHostedService : IHostedService, IDisposable
+public class PollingHostedService : IHostedService, IDisposable
 { 
     private static int queueCount = 0; // tracked across multiple threads
 
-    private readonly ILogger<TimedHostedService> _logger; 
+    private readonly ILogger<PollingHostedService> _logger; 
     private Dictionary<long, Timer?> _timers = new Dictionary<long, Timer?>();
     private Dictionary<long, object> _locks = new Dictionary<long, object>();
-    private readonly List<Device> devices = new List<Device>();
-    public TimedHostedService(ILogger<TimedHostedService> logger) {
+    private readonly List<BackgroundPollingTask> pollingTasks = new List<BackgroundPollingTask>();
+    public PollingHostedService(ILogger<PollingHostedService> logger) {
         _logger = logger; 
-        devices.Add(new Device { Id = 1, Interval = 1000 });
-        // devices.Add(new Device { Id = 2, Interval = 1000 });
-        // devices.Add(new Device { Id = 3, Interval = 2000 });
+        pollingTasks.Add(new BackgroundPollingTask { Id = 1, Interval = 3000 }); 
+        // pollingTasks.Add(new BackgroundPollingTask { Id = 2, Interval = 2000 }); 
+        // pollingTasks.Add(new BackgroundPollingTask { Id = 3, Interval = 3000 }); 
     }
 
     private void DoWork(object? state) {
-        var device = (Device)state!;  
+        var device = (BackgroundPollingTask)state!;  
 
         var lockByDevice = _locks.GetValueOrDefault(device.Id);
         var timerById = _timers.GetValueOrDefault(device.Id);
@@ -44,9 +44,11 @@ public class TimedHostedService : IHostedService, IDisposable
                 return;
             } 
 
-            timerById.Change(Timeout.Infinite, Timeout.Infinite); // Stop Tim
+            timerById.Change(
+                dueTime: Timeout.Infinite, 
+                period: Timeout.Infinite); // Stop Timer
             
-            Thread.Sleep(1000);
+            // Thread.Sleep(1000);
             _logger.LogInformation(
                 "DeviceId: {device}, UpdateAt: {time}", 
                 device.Id,
@@ -59,7 +61,13 @@ public class TimedHostedService : IHostedService, IDisposable
             {
                 Monitor.Exit(lockByDevice); 
             } 
-            timerById.Change(0, device.Interval); // Restart Timer 
+
+            // Restart Timer 
+            timerById.Change(
+                dueTime: device.Interval, 
+                period: device.Interval
+            ); 
+            
             Interlocked.Decrement(ref queueCount); 
         } 
     } 
@@ -67,19 +75,19 @@ public class TimedHostedService : IHostedService, IDisposable
     public Task StartAsync(CancellationToken cancellationToken)
     {  
 
-        foreach (var device in devices) { 
-            var timerById = _timers.GetValueOrDefault(device.Id);
+        foreach (var pollingTask in pollingTasks) { 
+            var timerById = _timers.GetValueOrDefault(pollingTask.Id);
 
             if(timerById is not null) continue;
             
-            _timers.Add(device.Id, new Timer(
+            _timers.Add(pollingTask.Id, new Timer(
                 callback: DoWork, 
-                state: device, 
+                state: pollingTask, 
                 dueTime: TimeSpan.Zero, 
-                period: TimeSpan.FromMilliseconds(device.Interval))
+                period: TimeSpan.FromMilliseconds(pollingTask.Interval))
             );
 
-            _locks.Add(device.Id, new object());
+            _locks.Add(pollingTask.Id, new object());
         } 
 
         return Task.CompletedTask;

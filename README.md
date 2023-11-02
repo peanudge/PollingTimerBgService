@@ -108,7 +108,7 @@ public class TimerService : IHostedService, IDisposable
             if (hasLock)
             {
                 Monitor.Exit(_locker);
-                _timer.Change(0, TimerInterval); // Restart Timer
+                _timer.Change(TimerInterval, TimerInterval); // Restart Timer
             }
         }
     }
