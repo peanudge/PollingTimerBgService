@@ -31,6 +31,8 @@ public class PollingHostedService : IHostedService, IDisposable, IPollingHostedS
 {
     private static int _queueCount = 0;
     private readonly ILogger<PollingHostedService> _logger;
+
+    // Wrap! _timer, _locks, _pollingTasks to one class
     private Dictionary<long, Timer> _timers = new Dictionary<long, Timer>();
     private Dictionary<long, object> _locks = new Dictionary<long, object>();
     private readonly List<BackgroundPollingTask> _pollingTasks = new List<BackgroundPollingTask>();

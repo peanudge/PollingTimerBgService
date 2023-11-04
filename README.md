@@ -1,7 +1,7 @@
 # Polling data using Timer
 
 > Reference
-> https://gunnarpeipman.com/avoid-overlapping-timer-calls/
+> https://gunnarpeipman.com/avoid-overlapping-timer-calls/ > https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-7.0&tabs=visual-studio
 
 Timers are useful .NET feature. With timers we can execute code with specified interval. With real scenarios we can easily face situations where timer calls its callback again but previous call is not finished yet. **It may end up with loading some external system too much.** It may also end up by making unexpected parallel data processing that distorts the results.
 
