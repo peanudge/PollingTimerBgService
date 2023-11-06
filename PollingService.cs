@@ -71,7 +71,6 @@ public class PollingService : IHostedService, IDisposable, IPollingService
 
             if (pollingTask.Work is not null)
             {
-                // TODO: Insert cancelltaion token
                 pollingTask.Work
                     .Invoke(pollingTask.CancellationToken)
                     .Wait();
