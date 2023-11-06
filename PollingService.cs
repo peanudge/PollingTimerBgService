@@ -33,7 +33,6 @@ public interface IPollingService
 
 public class PollingService : IHostedService, IDisposable, IPollingService
 {
-    private static int _queueCount = 0;
     private readonly ILogger<PollingService> _logger;
     private readonly List<PollingTask> _pollingTasks = new List<PollingTask>();
     private CancellationToken _cancellationToken = CancellationToken.None;
@@ -87,8 +86,6 @@ public class PollingService : IHostedService, IDisposable, IPollingService
                 dueTime: pollingTask.Interval,
                 period: pollingTask.Interval
             );
-
-            Interlocked.Decrement(ref _queueCount);
         }
     }
 
