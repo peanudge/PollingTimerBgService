@@ -120,3 +120,10 @@ Now we almost got rid of overlapping calls but not completely.
 Calls to timer callback still happen but they quit fast when failing to acquire lock.
 
 This method is also good for cases when some work in timer callback must be done at every call and there’s also some work that can’t be done in parallel by multiple threads.
+
+# PeriodTimer.cs
+
+> https://learn.microsoft.com/en-us/dotnet/api/system.threading.periodictimer?view=net-7.0
+
+After .NET 6.0, we can PeriodTimer without implementing manually lock between overlaped timer callback.
+but, We can not access directly timer in PeriodTimer. So, i manually implements lock between invoking timer callback
