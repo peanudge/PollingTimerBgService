@@ -3,10 +3,16 @@ using ContosoWorker;
 IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices(services =>
     {
-        services.AddSingleton<PollingHostedService>();
+        // TODO: Check if this is a good idea
+        // services.AddSingleton<PeriodicPollingService>();
+        // services.AddHostedService(
+        //     (serviceProvider) =>
+        //         serviceProvider.CreateScope().ServiceProvider.GetRequiredService<PeriodicPollingService>());
+
+        services.AddSingleton<PollingService>();
         services.AddHostedService(
             (serviceProvider) =>
-                serviceProvider.CreateScope().ServiceProvider.GetRequiredService<PollingHostedService>());
+                serviceProvider.CreateScope().ServiceProvider.GetRequiredService<PollingService>());
 
         services.AddHostedService<MainLoopService>();
     })
