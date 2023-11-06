@@ -4,11 +4,12 @@ public class PollingTask
 {
     public long Id { get; init; }
     public int Interval { get; init; }
-    public Func<Task> Work { get; init; }
+    public Func<CancellationToken, Task> Work { get; init; }
     public Timer Timer { get; set; } = null!;
     public object TimerLock { get; set; } = null!;
+    public CancellationToken CancellationToken { get; set; } = CancellationToken.None;
 
-    public PollingTask(long id, int interval, Func<Task> work)
+    public PollingTask(long id, int interval, Func<CancellationToken, Task> work)
     {
         Id = id;
         Interval = interval;
@@ -24,8 +25,10 @@ public class PollingTask
 
 public interface IPollingService
 {
-    bool AddPollingTask(long id, int interval, Func<Task> work);
+    bool AddPollingTask(long id, int interval, Func<CancellationToken, Task> work);
     bool RemovePollingTask(long id);
+    bool StopPollingTask(long id);
+    bool RestartPollingTask(long id);
 }
 
 public class PollingService : IHostedService, IDisposable, IPollingService
@@ -33,6 +36,8 @@ public class PollingService : IHostedService, IDisposable, IPollingService
     private static int _queueCount = 0;
     private readonly ILogger<PollingService> _logger;
     private readonly List<PollingTask> _pollingTasks = new List<PollingTask>();
+    private CancellationToken _cancellationToken = CancellationToken.None;
+
     public PollingService(ILogger<PollingService> logger)
     {
         _logger = logger;
@@ -66,8 +71,9 @@ public class PollingService : IHostedService, IDisposable, IPollingService
 
             if (pollingTask.Work is not null)
             {
+                // TODO: Insert cancelltaion token
                 pollingTask.Work
-                    .Invoke()
+                    .Invoke(pollingTask.CancellationToken)
                     .Wait();
             }
         }
@@ -89,6 +95,8 @@ public class PollingService : IHostedService, IDisposable, IPollingService
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
+        _cancellationToken = cancellationToken;
+
         _logger.LogInformation("Polling Hosted Service is starting.");
 
         foreach (var pollingTask in _pollingTasks)
@@ -109,6 +117,7 @@ public class PollingService : IHostedService, IDisposable, IPollingService
             );
 
             pollingTask.AttachTimer(newTimer);
+            pollingTask.CancellationToken = cancellationToken;
         }
 
         return Task.CompletedTask;
@@ -152,7 +161,7 @@ public class PollingService : IHostedService, IDisposable, IPollingService
         return removedTaskCount >= 1;
     }
 
-    public bool AddPollingTask(long id, int interval, Func<Task> work)
+    public bool AddPollingTask(long id, int interval, Func<CancellationToken, Task> work)
     {
         var pollingTask = _pollingTasks.Where(t => t.Id == id).FirstOrDefault();
 
@@ -174,7 +183,33 @@ public class PollingService : IHostedService, IDisposable, IPollingService
         );
 
         newPollingTask.AttachTimer(newTimer);
-
+        newPollingTask.CancellationToken = _cancellationToken;
         return true;
+    }
+
+    public bool StopPollingTask(long id)
+    {
+        var pollingTask = _pollingTasks.Where(t => t.Id == id).FirstOrDefault();
+        if (pollingTask is null)
+        {
+            _logger.LogWarning("PollingTaskId: {id} not exists", id);
+            return false;
+        }
+
+        var timer = pollingTask.Timer;
+        return timer.Change(Timeout.Infinite, Timeout.Infinite);
+    }
+
+    public bool RestartPollingTask(long id)
+    {
+        var pollingTask = _pollingTasks.Where(t => t.Id == id).FirstOrDefault();
+        if (pollingTask is null)
+        {
+            _logger.LogWarning("PollingTaskId: {id} not exists", id);
+            return false;
+        }
+
+        var timer = pollingTask.Timer;
+        return timer.Change(pollingTask.Interval, pollingTask.Interval);
     }
 }
